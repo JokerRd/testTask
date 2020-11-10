@@ -1,0 +1,15 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="MisspelledHeader" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="CUSTOM_HEADERS">
+        <header value="# Application Listeners" />
+        <header value="# Initializers" />
+        <header value="org.springframework.boot.autoconfigure.SharedMetadataReaderFactoryContextInitializer,\" />
+        <header value="org.springframework.boot.autoconfigure.logging.AutoConfigurationReportLoggingInitializer" />
+        <header value="org.springframework.boot.autoconfigure.mail.MailSenderValidatorAutoConfiguration,\" />
+        <header value="org.springframework.context.ApplicationContextInitializer=\" />
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
