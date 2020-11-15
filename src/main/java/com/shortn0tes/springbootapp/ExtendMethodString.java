@@ -1,27 +1,22 @@
 package com.shortn0tes.springbootapp;
 
+interface ComparatorSort{
+    int compare(String first, String second);
+}
+
 public class ExtendMethodString {
 
-    public static String PreparingStrForAdd(String inputStr, String separator, int numberColumn){
-        String result;
-        try {
-            result = skipNoLetterAndNoNumberSym(inputStr.split(separator)[numberColumn]);
-        }
-        catch (ArrayIndexOutOfBoundsException exception){
-            throw new ArrayIndexOutOfBoundsException("Invalid column number");
-        }
-        return result;
+    public static int compareInt(String first, String second){
+        double firstNum = first.isEmpty()? 0 : Double.parseDouble(first);
+        double secondNum = second.isEmpty() ? 0 : Double.parseDouble(second);
+        double result = firstNum - secondNum;
+        return result == 0 ? 0 : result < 0 ? -1 : 1;
     }
 
-    private static String skipNoLetterAndNoNumberSym(String inputStr){
-        if (inputStr.length() == 0)
-            return inputStr;
-        int count = 0;
-        for (int i = 0; i < inputStr.length() && !Character.isLetterOrDigit(inputStr.charAt(i))
-                && inputStr.charAt(i) != '-'; i++)
-            count++;
-        return inputStr.substring(count);
+    public static int compareStr(String first, String second){
+        return first.compareTo(second);
     }
+
    public static boolean searchSubstring(String str, String searchStr){
        for (int i = 0; i < searchStr.length(); i++)
            if(str.charAt(i) != searchStr.charAt(i))
@@ -29,14 +24,15 @@ public class ExtendMethodString {
        return true;
    }
 
-    public static void quickSortStr(SearchPair[] source, int leftBorder, int rightBorder) {
+    public static void quickSortStr(SearchPair[] source, int leftBorder, int rightBorder,
+                                    ComparatorSort comparatorSort ) {
         int leftMarker = leftBorder;
         int rightMarker = rightBorder;
         String pivot = source[(leftMarker + rightMarker) / 2].sortedKey;
         do {
-            while (source[leftMarker].sortedKey.compareTo(pivot) < 0)
+            while(comparatorSort.compare(source[leftMarker].sortedKey, pivot) < 0)
                 leftMarker++;
-            while (source[rightMarker].sortedKey.compareTo(pivot) > 0)
+            while (comparatorSort.compare(source[rightMarker].sortedKey, pivot)  > 0)
                 rightMarker--;
             if (leftMarker <= rightMarker) {
                 if (leftMarker < rightMarker) {
@@ -49,8 +45,8 @@ public class ExtendMethodString {
             }
         } while (leftMarker <= rightMarker);
         if (leftMarker < rightBorder)
-            quickSortStr(source, leftMarker, rightBorder);
+            quickSortStr(source, leftMarker, rightBorder, comparatorSort);
         if (leftBorder < rightMarker)
-            quickSortStr(source, leftBorder, rightMarker);
+            quickSortStr(source, leftBorder, rightMarker, comparatorSort);
     }
 }

@@ -2,18 +2,19 @@ package com.shortn0tes.springbootapp;
 
 import javafx.util.Pair;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URL;
-import java.util.NoSuchElementException;
-import java.util.Scanner;
 import java.util.TreeMap;
+import com.opencsv.CSVReader;
 
 enum MarkReadFile{
     READING,
     END_OF_READING
+}
+
+enum ParameterSort{
+    INT,
+    STRING
 }
 
 class SearchPair {
@@ -35,7 +36,13 @@ public class SeacrhEngine {
     private int sizeBufferStr;;
     private SearchPair[] buffer;
     private InputStream input;
-    private Scanner scanner;
+    private CSVReader reader;
+    private String[] readingLine;
+    private ParameterSort parameterSort;
+
+    public ParameterSort getParameterSort() {
+        return parameterSort;
+    }
 
     public int getNumberColumns() {
         return numberColumns;
@@ -57,12 +64,14 @@ public class SeacrhEngine {
         this.numberColumns = numberColumns;
         this.sizeBufferStr = Settings.SIZE_BUFFER_STRING;
         initializationBuffer();
+        readingLine = null;
     }
 
     public SeacrhEngine(){
         this.numberColumns = Settings.DEFAULT_NUMBER_COLUMN - 1;
         this.sizeBufferStr = Settings.SIZE_BUFFER_STRING;
         initializationBuffer();
+        readingLine = null;
     }
 
     private void initializationBuffer(){
@@ -83,32 +92,49 @@ public class SeacrhEngine {
         }
     }
 
-    public void initializationScanner(){
+
+    public void initializationCSVReader(){
         if (input == null)
             throw new NullPointerException("Initialize the input stream");
-        scanner = new Scanner(input);
+        reader = new CSVReader(new InputStreamReader(input));
     }
 
-    public MarkReadFile readFileToBuffer(){
-        if (scanner == null)
+    public void setParameterSort(){
+        if (Character.isDigit(readingLine[this.numberColumns].charAt(0))){
+            parameterSort =  ParameterSort.INT;
+            return;
+        }
+        parameterSort =  ParameterSort.STRING;
+    }
+
+    public void readFirstStr(){
+        try {
+            readingLine = reader.readNext();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public MarkReadFile readFileToBufferWithCSVReader(){
+        if (reader == null)
             throw new NullPointerException("Initialize the scanner");
         int countStr = 0;
-        String addedLine = "";
-        try {
-            for (int i = 0; scanner.hasNextLine() && i < sizeBufferStr; i++){
-                addedLine = scanner.nextLine();
-                buffer[i].sortedKey = ExtendMethodString.PreparingStrForAdd(addedLine,
-                        Settings.SEPARATOR, this.numberColumns);
-                buffer[i].value =addedLine;
+        try{
+            for(int i = 0; readingLine != null && i < sizeBufferStr; i++){
+                buffer[i].sortedKey = readingLine[this.numberColumns];
+                buffer[i].value = String.join(" ", readingLine);
+                readingLine  = reader.readNext();
                 countStr++;
             }
         }
-        catch (NoSuchElementException exception){
-
+        catch (IOException e ){
+            System.out.println("Error input");
         }
-        if (countStr != sizeBufferStr)
+        if (countStr != sizeBufferStr){
             buildLimitedBuffer(countStr);
-        return countStr == sizeBufferStr ? MarkReadFile.READING: MarkReadFile.END_OF_READING;
+            return MarkReadFile.END_OF_READING;
+        }
+        return MarkReadFile.READING;
     }
 
     private void buildLimitedBuffer(int size){
@@ -116,9 +142,10 @@ public class SeacrhEngine {
         for(int i = 0; i < size; i++)
             limBuffer[i] = buffer[i];
         buffer = limBuffer;
+        sizeBufferStr = size;
     }
 
-    public  int binarySearchIndexStart(String substring) {
+    public  int binarySearchIndexStart(String substring, ComparatorSort comparatorSort) {
         int searchedIndex = -1;
         int firstIndex = 0;
         int lastIndex = buffer.length - 1;
@@ -126,10 +153,12 @@ public class SeacrhEngine {
         while(firstIndex <= lastIndex) {
             int middleIndex = (firstIndex + lastIndex) / 2;
             compareStr = ";";
-            if (buffer[middleIndex].sortedKey.compareTo(substring) < 0)
+            if (comparatorSort.compare(buffer[middleIndex].sortedKey,substring) < 0)
                 firstIndex= middleIndex + 1;
-            else if (buffer[middleIndex].sortedKey.compareTo(substring) > 0) {
+            else if (comparatorSort.compare(buffer[middleIndex].sortedKey,substring) >= 0) {
                 if (ExtendMethodString.searchSubstring(buffer[middleIndex].sortedKey, substring))
+                    searchedIndex = middleIndex;
+                if (parameterSort == ParameterSort.INT)
                     searchedIndex = middleIndex;
                 lastIndex = middleIndex - 1;
             }
@@ -137,14 +166,14 @@ public class SeacrhEngine {
         return searchedIndex;
     }
 
-    public  int binarySearchIndexEnd(String substring) {
+    public  int binarySearchIndexEnd(String substring, ComparatorSort comparatorSort) {
         int firstIndex = 0;
         int lastIndex = buffer.length - 1;
         while(firstIndex + 1 < lastIndex) {
             int middleIndex = (firstIndex + lastIndex) / 2;
-            if (buffer[middleIndex].sortedKey.compareTo(substring) < 0)
+            if (comparatorSort.compare(buffer[middleIndex].sortedKey,substring) < 0)
                 firstIndex= middleIndex + 1;
-            else if (buffer[middleIndex].sortedKey.compareTo(substring) > 0) {
+            else if (comparatorSort.compare(buffer[middleIndex].sortedKey,substring) > 0) {
                 if (ExtendMethodString.searchSubstring(buffer[middleIndex].sortedKey, substring))
                     firstIndex = middleIndex;
                 else
@@ -154,20 +183,26 @@ public class SeacrhEngine {
         return firstIndex;
     }
 
-    public Pair<Integer, Integer> searchInBuffer(String substring){
-        ExtendMethodString.quickSortStr(buffer,0, buffer.length - 1);
-        int startIndex = binarySearchIndexStart(substring);
+    public Pair<Integer, Integer> searchInBuffer(String substring, TimerSearch timerSearch){
+        ComparatorSort comparatorSort  = parameterSort == ParameterSort.INT ?
+                ExtendMethodString::compareInt : ExtendMethodString:: compareStr;
+        ExtendMethodString.quickSortStr(buffer,0, buffer.length - 1, comparatorSort);
+        timerSearch.startTimer();
+        int startIndex = binarySearchIndexStart(substring, comparatorSort);
         if (startIndex == -1)
             return new Pair<>(-1,-1);
-        int endIndex = binarySearchIndexEnd(substring);
+        int endIndex = parameterSort == ParameterSort.INT ? sizeBufferStr - 1 :
+                binarySearchIndexEnd(substring, comparatorSort);
+        timerSearch.stopTimer();
         return new Pair<>(startIndex,endIndex);
     }
 
-    public void addTreeResult(Pair<Integer, Integer> indexes, TreeMap<String, String> tree){
+    public void addTreeResult(Pair<Integer, Integer> indexes, TreeMap<Object, String> tree){
         if (indexes.getKey() == -1)
             return;
         for(int i = indexes.getKey(); i <= indexes.getValue(); i++)
-            tree.put(buffer[i].sortedKey, buffer[i].value);
+            tree.put(parameterSort == ParameterSort.INT ? Double.parseDouble(buffer[i].sortedKey)
+                    : buffer[i].sortedKey, buffer[i].value);
     }
 
 

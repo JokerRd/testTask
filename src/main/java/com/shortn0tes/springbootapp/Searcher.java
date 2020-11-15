@@ -36,7 +36,7 @@ class TimerSearch {
 
 public class Searcher {
     private SeacrhEngine engine;
-    private TreeMap<String, String> sortedStrTree;
+    private TreeMap<Object, String> sortedStrTree;
     private String searchSubstring;
     private String timeSearch;
 
@@ -63,17 +63,17 @@ public class Searcher {
         if(engine == null)
             throw new NullPointerException("Initialize the engine");
         engine.initializationInputStream(path);
-        engine.initializationScanner();
+        engine.initializationCSVReader();
     }
 
     public void search(){
         MarkReadFile mark;
         TimerSearch timer = new TimerSearch();
+        engine.readFirstStr();
+        engine.setParameterSort();
         do {
-            mark = engine.readFileToBuffer();
-            timer.startTimer();
-            Pair<Integer, Integer> indexes = engine.searchInBuffer(this.searchSubstring);
-            timer.stopTimer();
+            mark = engine.readFileToBufferWithCSVReader();
+            Pair<Integer, Integer> indexes = engine.searchInBuffer(this.searchSubstring, timer);
             engine.addTreeResult(indexes, this.sortedStrTree);
         }while (mark != MarkReadFile.END_OF_READING);
         timeSearch = timer.getTime();
